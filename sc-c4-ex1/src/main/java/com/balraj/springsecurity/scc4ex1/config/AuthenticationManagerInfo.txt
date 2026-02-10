@@ -1,0 +1,34 @@
+package com.balraj.springsecurity.scc4ex1.config;
+
+import org.springframework.security.authentication.AuthenticationManager;
+
+public class SecurityConfig extends WebSecurityConfigurerAdapter{
+
+    @Override
+    @Bean
+    protected AuthenticationManager authenticationManager() throws Exception {
+        return super.authenticationManager();
+        // WebSecurityConfigurerAdapter internally built the AuthenticationManager
+
+       // super.authenticationManager() returned it
+    }  //this way we added a suthentication manager in the springcontext
+    //so that manager can be used in any customauthentication filter,
+    //Spring deprecated WebSecurityConfigurerAdapter because it relied on inheritance
+    //and implicit configuration, which made security behavior opaque,
+    //hard to customize, and hard to reason about.
+
+
+    AuthenticationManager today
+    @Bean
+    AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    Asks Spring Security for the already-built AuthenticationManager
+    Includes all registered AuthenticationProviders
+    Puts it into the Spring context
+    Makes it injectable anywhere (filters, services)
+}
+
+
