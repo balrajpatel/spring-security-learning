@@ -1,0 +1,299 @@
+0️⃣ Application startup (important groundwork)
+
+Before any HTTP request happens, Spring Boot does this:
+
+Detects spring-security on the classpath
+
+Finds your SecurityFilterChain bean
+
+Disables default security
+
+Builds a filter chain like this (simplified):
+
+SecurityContextHolderFilter
+↓
+CustomAuthenticationFilter   ← your filter (inserted here)
+↓
+UsernamePasswordAuthenticationFilter (replaced)
+↓
+AuthorizationFilter
+↓
+ExceptionTranslationFilter
+↓
+...
+
+
+👉 Because you used:
+
+.addFilterAt(customAuthenticationFilter,
+    UsernamePasswordAuthenticationFilter.class)
+
+
+You replaced the standard username/password login mechanism.
+
+1️⃣ Client sends an HTTP request
+
+Example request:
+
+GET /api/data
+key: 12345
+
+
+No session, no login form, no JWT — just a raw HTTP request with a header.
+
+2️⃣ Request enters Spring Security filter chain
+
+Spring Security intercepts every request because of:
+
+.anyRequest().authenticated()
+
+
+So authentication must succeed, or access is denied.
+
+3️⃣ CustomAuthenticationFilter runs (OncePerRequestFilter)
+
+Your filter executes once per request.
+
+3.1 Extract authentication data
+String key = String.valueOf(request.getHeader("key"));
+
+
+This is your credential source
+👉 analogous to username/password, but simpler.
+
+3.2 Create an unauthenticated Authentication object
+CustomAuthentication ca =
+    new CustomAuthentication(false, key);
+
+
+Key ideas here:
+
+Property	Meaning
+false	Not authenticated yet
+key	Credential to be verified
+
+⚠️ At this moment:
+
+This object is NOT trusted
+
+Spring Security treats it as a request to authenticate
+
+4️⃣ Delegate to CustomAuthenticationManager
+var a = customAuthenticationManager.authenticate(ca);
+
+
+This is the authentication hand-off point.
+
+Your filter:
+
+Does NOT validate credentials
+
+Does NOT know rules
+
+Just delegates
+
+👍 This separation is exactly how Spring Security is designed
+
+5️⃣ CustomAuthenticationManager.authenticate()
+if (customAuthenticationProvider.supports(authentication.getClass())) {
+    return customAuthenticationProvider.authenticate(authentication);
+}
+
+
+What happens here:
+
+Manager checks:
+
+“Do I have a provider that understands this Authentication type?”
+
+Your provider supports:
+
+CustomAuthentication.class
+
+
+Manager forwards the request
+
+If no provider supports it → ❌ BadCredentialsException
+
+6️⃣ CustomAuthenticationProvider.authenticate()
+
+This is the real authentication logic.
+
+6.1 Cast Authentication
+CustomAuthentication customAuthentication =
+    (CustomAuthentication) authentication;
+
+
+Safe because supports() already checked the type.
+
+6.2 Extract the credential
+String headerKey = customAuthentication.getKey();
+
+6.3 Compare with server-side secret
+@Value("${our.very.very.sercret.key}")
+private String key;
+
+
+Then:
+
+if (key.equals(headerKey)) {
+    return new CustomAuthentication(true, null);
+}
+
+
+✔️ Match → authenticated
+❌ No match → exception
+
+6.4 Return an authenticated Authentication object
+
+This is crucial:
+
+return new CustomAuthentication(true, null);
+
+
+Rules:
+
+isAuthenticated() must return true
+
+This object represents a trusted identity
+
+Think of it as:
+
+“Yes, this request is legit. I vouch for it.”
+
+7️⃣ Control returns to CustomAuthenticationFilter
+
+Back in the filter:
+
+if (a.isAuthenticated()) {
+    SecurityContextHolder.getContext().setAuthentication(a);
+    filterChain.doFilter(request, response);
+}
+
+7.1 Store Authentication in SecurityContext
+
+This is the single most important line:
+
+SecurityContextHolder.getContext().setAuthentication(a);
+
+
+Now:
+
+Spring Security considers the request authenticated
+
+The authentication is available everywhere:
+
+Controllers
+
+Method security
+
+Authorization checks
+
+7.2 Continue filter chain
+filterChain.doFilter(request, response);
+
+
+If you don’t call this, request processing stops here.
+
+8️⃣ Authorization phase kicks in
+
+Later in the chain:
+
+.anyRequest().authenticated()
+
+
+Spring Security checks:
+
+SecurityContextHolder.getContext().getAuthentication()
+
+
+✔️ Present
+✔️ isAuthenticated() == true
+
+➡️ Access granted
+
+9️⃣ Controller executes normally
+
+Your controller method is now called.
+
+From Spring’s perspective:
+
+Authentication already happened
+
+No difference from form login / JWT / OAuth
+
+🔟 What happens on failure?
+Case 1: Wrong key
+
+Provider throws:
+
+throw new BadCredentialsException("Bad credentials");
+
+
+Spring Security:
+
+Clears SecurityContext
+
+Triggers ExceptionTranslationFilter
+
+Returns 401 Unauthorized
+
+Case 2: Missing header
+
+request.getHeader("key") == null
+→ comparison fails
+→ same 401 flow
+
+⚠️ Important observations (very senior-level)
+1️⃣ Your filter does NOT handle failure explicitly
+
+You do not call:
+
+filterChain.doFilter(...)
+
+
+on failure.
+
+That’s OK only because an exception is thrown.
+But if you ever return null instead of throwing → 🚨 request will hang.
+
+2️⃣ You are doing stateless authentication
+
+No sessions
+
+No cookies
+
+Every request must carry the key
+
+Perfect for:
+
+Internal services
+
+Machine-to-machine APIs
+
+3️⃣ Why OncePerRequestFilter was the right choice
+
+You were 💯 correct not to use AuthenticationFilter because:
+
+You’re not implementing a login endpoint
+
+You don’t need success/failure handlers
+
+You want silent request-level authentication
+
+This is exactly what OncePerRequestFilter is for.
+
+🧠 Mental model (remember this)
+Request
+ ↓
+CustomAuthenticationFilter
+ ↓
+AuthenticationManager
+ ↓
+AuthenticationProvider
+ ↓
+SecurityContextHolder
+ ↓
+Authorization
+ ↓
+Controller
