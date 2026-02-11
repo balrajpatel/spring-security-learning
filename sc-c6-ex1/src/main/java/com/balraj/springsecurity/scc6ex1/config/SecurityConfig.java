@@ -52,3 +52,16 @@ public class SecurityConfig {
 
 
 }
+/*
+Code	                                                Internal Type
+.requestMatchers("/admin/**")	                        MvcRequestMatcher
+.requestMatchers(HttpMethod.GET, "/a/**")	            MvcRequestMatcher
+.requestMatchers(new AntPathRequestMatcher(...))	        AntPathRequestMatcher
+.requestMatchers(new RegexRequestMatcher(...))	        RegexRequestMatcher
+Pattern                                 	Meaning
+/admin	                                    exact match
+/admin/*	                                one level deep
+/admin/**	                                any depth
+/*.css	                                    any CSS in root
+
+ */
