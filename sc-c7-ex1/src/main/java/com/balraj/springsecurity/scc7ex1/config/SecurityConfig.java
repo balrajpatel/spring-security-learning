@@ -1,22 +1,31 @@
-package com.balraj.springsecurity.scc6ex1.config;
+package com.balraj.springsecurity.scc7ex1.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.util.PathMatcher;
 
 @Configuration
-public class SecurityConfig {
+@EnableMethodSecurity
+//  perAuthorize, postAuthorize, preFilter,postFilter,
+//@Secured  , @RolesAllowed all got enabled
 
+public class SecurityConfig {
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http.httpBasic(Customizer.withDefaults())
+                .authorizeHttpRequests(auth->auth.anyRequest().authenticated())
+                .build();
+    }
     @Bean
     public UserDetailsService userDetailsService() {
         var uds = new InMemoryUserDetailsManager();
@@ -36,32 +45,4 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, PathMatcher mvcPathMatcher) throws Exception {
-        return http .csrf(csrf -> csrf.disable())
-                .httpBasic(Customizer.withDefaults())
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET,"/test/**").hasAuthority("write")
-                        .anyRequest().authenticated()
-                )
-
-                        .build();
-    }
-
-
 }
-/*
-Code	                                                Internal Type
-.requestMatchers("/admin/**")	                        MvcRequestMatcher
-.requestMatchers(HttpMethod.GET, "/a/**")	            MvcRequestMatcher
-.requestMatchers(new AntPathRequestMatcher(...))	        AntPathRequestMatcher
-.requestMatchers(new RegexRequestMatcher(...))	        RegexRequestMatcher
-Pattern                                 	Meaning
-/admin	                                    exact match
-/admin/*	                                one level deep
-/admin/**	                                any depth
-/*.css	                                    any CSS in root
-
- */
