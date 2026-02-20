@@ -9,8 +9,6 @@ import com.balraj.springsecurity.scc8jwt.repositores.JpaUserRepository;
 import com.balraj.springsecurity.scc8jwt.security.AuthUtil;
 import com.balraj.springsecurity.scc8jwt.security.SecurityUser;
 import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,16 +33,23 @@ public class JwtAuthService {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequestDto.getUsername(), loginRequestDto.getPassword())
+
+                    //SecurityContextHolder.getContext().setAuthentication(authentication);
+                    //doesn't matter since its states less, so after any other request it gets disappeared
+                    // automatically,
+                    // so after login, when we go in multiple request we each time set the security context
+                    //using jwt token
             );
             // User user = (User) authentication.getPrincipal();  since authentication stores the
             // default UserDetails obj or the custom UserDetails which implements it, not the entity,
             SecurityUser securityUser =
                     (SecurityUser) authentication.getPrincipal();
 
-            User user = securityUser.getUser();
+            String token = authUtil.generateAccessToken(securityUser);
 
-            String token = authUtil.generateAccessToken(user);
-            return new LoginResponseDto(token, user.getId());
+            // we use securityUser since its authenticated got from securityContext,
+            //can't use LoginRequestDto to get token since user can enter invalid username password
+            return new LoginResponseDto(token, securityUser.getId());
         }catch (Exception e) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,

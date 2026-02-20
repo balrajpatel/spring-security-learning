@@ -48,7 +48,7 @@ public class AuthUtil {
      */
 
 
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(SecurityUser user) {
         return Jwts.builder()
                 .subject(user.getUsername())
                 .claim("userId",user.getId().toString())

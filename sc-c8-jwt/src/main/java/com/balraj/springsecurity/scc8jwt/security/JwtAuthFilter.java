@@ -53,7 +53,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 log.info("User authenticated: {}", username);
 
-                // validate Token
+                // since token is there , so no authentication manager or provider
+                // to for authentication, authentication is done through token validation.
                 if (authUtil.validateToken(token, securityUser)) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(securityUser,
